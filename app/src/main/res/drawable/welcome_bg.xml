@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="414dp"
+    android:height="896dp"
+    android:viewportWidth="414"
+    android:viewportHeight="896">
+
+    <!-- Background with blur effect simulation -->
+    <path
+        android:fillColor="#8BC34A"
+        android:pathData="M0,0h414v896h-414z"/>
+
+    <!-- Darker overlay at bottom -->
+    <path
+        android:fillColor="#88000000"
+        android:pathData="M0,600h414v296h-414z"/>
+
+    <!-- Medium overlay in middle -->
+    <path
+        android:fillColor="#44000000"
+        android:pathData="M0,400h414v200h-414z"/>
+
+</vector>
+
