@@ -18,17 +18,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.viewmodel.NectarProductViewModel
+import com.example.groceries_app.viewmodel.NectarProductState
 
 data class FilterCategory(
-    val id: Int,
+    val id: String,  // Changed to String to support UUID or name
     val name: String,
     var isSelected: Boolean = false
 )
 
 data class FilterBrand(
-    val id: Int,
+    val id: String,  // Changed to String to support UUID or name
     val name: String,
     var isSelected: Boolean = false
 )
@@ -38,24 +42,88 @@ data class FilterBrand(
 fun FilterScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onApplyFilter: (List<FilterCategory>, List<FilterBrand>) -> Unit = { _, _ -> }
+    onApplyFilter: (List<FilterCategory>, List<FilterBrand>) -> Unit = { _, _ -> },
+    viewModel: NectarProductViewModel = viewModel()
 ) {
-    // Sample data - you can pass this as parameters or fetch from ViewModel
+    val state by viewModel.productsState.collectAsState()
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadProducts()
+    }
+    
+    // Extract unique categories and brands from API products
     val categories = remember {
-        mutableStateListOf(
-            FilterCategory(1, "Eggs", isSelected = true),
-            FilterCategory(2, "Noodles & Pasta", isSelected = false),
-            FilterCategory(3, "Chips & Crisps", isSelected = false),
-            FilterCategory(4, "Fast Food", isSelected = false)
+        mutableStateListOf<FilterCategory>()
+    }
+    
+    val brands = remember {
+        mutableStateListOf<FilterBrand>()
+    }
+    
+    // Populate categories and brands from API data
+    LaunchedEffect(state) {
+        if (state is NectarProductState.Success) {
+            val products = (state as NectarProductState.Success).products
+            
+            // Extract unique categories with UUIDs if available
+            val apiCategories = products
+                .mapNotNull { product -> 
+                    product.category?.let { catName ->
+                        FilterCategory(
+                            id = product.uuid, // Use product UUID as category ID
+                            name = catName,
+                            isSelected = false
+                        )
+                    }
+                }
+                .distinctBy { it.name }
+            
+            // Extract unique brands (using first word of product name as brand approximation)
+            val apiBrands = products
+                .mapNotNull { product ->
+                    product.name?.split(" ")?.firstOrNull()?.let { brandName ->
+                        FilterBrand(
+                            id = product.uuid,
+                            name = brandName,
+                            isSelected = false
+                        )
+                    }
+                }
+                .distinctBy { it.name }
+                .take(10) // Limit to 10 brands
+            
+            if (categories.isEmpty() && apiCategories.isNotEmpty()) {
+                categories.clear()
+                categories.addAll(apiCategories)
+            }
+            
+            if (brands.isEmpty() && apiBrands.isNotEmpty()) {
+                brands.clear()
+                brands.addAll(apiBrands)
+            }
+        }
+    }
+    
+    // Fallback to default data if API fails
+    if (categories.isEmpty()) {
+        categories.addAll(
+            listOf(
+                FilterCategory("eggs", "Eggs", isSelected = true),
+                FilterCategory("noodles", "Noodles & Pasta", isSelected = false),
+                FilterCategory("chips", "Chips & Crisps", isSelected = false),
+                FilterCategory("fastfood", "Fast Food", isSelected = false)
+            )
         )
     }
-
-    val brands = remember {
-        mutableStateListOf(
-            FilterBrand(1, "Individual Collection", isSelected = false),
-            FilterBrand(2, "Cocola", isSelected = true),
-            FilterBrand(3, "Ifad", isSelected = false),
-            FilterBrand(4, "Kazi Farmas", isSelected = false)
+    
+    if (brands.isEmpty()) {
+        brands.addAll(
+            listOf(
+                FilterBrand("individual", "Individual Collection", isSelected = false),
+                FilterBrand("cocola", "Cocola", isSelected = true),
+                FilterBrand("ifad", "Ifad", isSelected = false),
+                FilterBrand("kazi", "Kazi Farmas", isSelected = false)
+            )
         )
     }
 

@@ -14,20 +14,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.ui.screens.CartItem
+import com.example.groceries_app.viewmodel.CartViewModel
+import com.example.groceries_app.viewmodel.FavoritesViewModel
 
 data class FavouriteItem(
-    val id: Int,
+    val id: String,
     val name: String,
     val size: String,
     val price: Double,
-    val imageRes: Int
+    val imageRes: Int,
+    val imageUrl: String? = null  // Support for API image URLs
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,25 +41,32 @@ data class FavouriteItem(
 fun FavouriteScreen(
     modifier: Modifier = Modifier,
     onProductClick: (FavouriteItem) -> Unit = {},
-    onAddAllToCart: () -> Unit = {}
+    onAddAllToCart: () -> Unit = {},
+    cartViewModel: CartViewModel? = null
 ) {
-    // Sample favourite items
-    val favouriteItems = remember {
-        listOf(
-            FavouriteItem(1, "Sprite Can", "325ml, Price", 1.50,com.example.groceries_app.R.drawable.img_4),
-            FavouriteItem(2, "Diet Coke", "355ml, Price", 1.99, com.example.groceries_app.R.drawable.img_4),
-            FavouriteItem(3, "Apple & Grape Juice", "2L, Price", 15.50, com.example.groceries_app.R.drawable.img_4),
-            FavouriteItem(4, "Coca Cola Can", "325ml, Price", 4.99, com.example.groceries_app.R.drawable.img_4),
-            FavouriteItem(5, "Pepsi Can", "330ml, Price", 4.99, com.example.groceries_app.R.drawable.img_4)
+    val context = LocalContext.current
+    val favoritesViewModel = remember { FavoritesViewModel(context) }
+    val favorites by favoritesViewModel.favorites.collectAsState()
+    
+    // Convert FavoriteProduct to FavouriteItem for display
+    val favouriteItems = favorites.map { favorite ->
+        FavouriteItem(
+            id = favorite.id,
+            name = favorite.name,
+            size = favorite.category ?: "N/A",
+            price = favorite.price,
+            imageRes = com.example.groceries_app.R.drawable.img_4,
+            imageUrl = favorite.imageUrl
         )
     }
+    val isLoading = false
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Favoururite",
+                        text = "Favourite",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.fillMaxWidth(),
@@ -67,7 +80,25 @@ fun FavouriteScreen(
         },
         bottomBar = {
             Button(
-                onClick = onAddAllToCart,
+                onClick = {
+                    // Add all favorite items to cart
+                    favouriteItems.forEach { item ->
+                        cartViewModel?.addToCart(
+                            CartItem(
+                                id = item.id,
+                                name = item.name,
+                                size = item.size,
+                                weight = item.size,
+                                price = item.price,
+                                imageRes = item.imageRes,
+                                quantity = 1,
+                                imageUrl = item.imageUrl,
+                                productUuid = item.id
+                            )
+                        )
+                    }
+                    onAddAllToCart()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
@@ -87,21 +118,59 @@ fun FavouriteScreen(
         },
         containerColor = Color.White
     ) { paddingValues ->
-        LazyColumn(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            items(favouriteItems) { item ->
-                FavouriteItemCard(
-                    favouriteItem = item,
-                    onItemClick = { onProductClick(item) }
-                )
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = Color(0xFFE2E2E2),
-                    thickness = 1.dp
-                )
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = NectarGreen)
+            }
+        } else if (favouriteItems.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "No Favourites Yet",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Add items to your favourites to see them here",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                items(favouriteItems) { item ->
+                    FavouriteItemCard(
+                        favouriteItem = item,
+                        onItemClick = { onProductClick(item) }
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color(0xFFE2E2E2),
+                        thickness = 1.dp
+                    )
+                }
             }
         }
     }
@@ -121,14 +190,27 @@ fun FavouriteItemCard(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Product Image
-        Image(
-            painter = painterResource(id = favouriteItem.imageRes),
-            contentDescription = favouriteItem.name,
-            modifier = Modifier
-                .size(70.dp)
-                .padding(end = 20.dp),
-            contentScale = ContentScale.Fit
-        )
+        if (favouriteItem.imageUrl != null && favouriteItem.imageUrl.isNotEmpty()) {
+            AsyncImage(
+                model = favouriteItem.imageUrl,
+                contentDescription = favouriteItem.name,
+                modifier = Modifier
+                    .size(70.dp)
+                    .padding(end = 20.dp),
+                contentScale = ContentScale.Fit,
+                placeholder = painterResource(id = favouriteItem.imageRes),
+                error = painterResource(id = favouriteItem.imageRes)
+            )
+        } else {
+            Image(
+                painter = painterResource(id = favouriteItem.imageRes),
+                contentDescription = favouriteItem.name,
+                modifier = Modifier
+                    .size(70.dp)
+                    .padding(end = 20.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
 
         // Product Details
         Column(

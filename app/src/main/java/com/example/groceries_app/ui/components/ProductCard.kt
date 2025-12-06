@@ -22,16 +22,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.groceries_app.R
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
 
 data class Product(
-    val id: Int = 0,
+    val id: String = "0",
     val name: String? = "Unknown",
     val weight: String? = "",
     val price: Double = 0.0,
-    val imageRes: Int = com.example.groceries_app.R.drawable.img_2
+    val imageRes: Int = com.example.groceries_app.R.drawable.img_2,
+    val imageUrl: String? = null // Support for API image URLs
 )
 
 @Composable
@@ -75,14 +77,29 @@ fun ProductCard(
                         .height(100.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = product.imageRes),
-                        contentDescription = product.name ?: "product",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Fit
-                    )
+                    if (product.imageUrl != null && product.imageUrl.isNotEmpty()) {
+                        // Load image from URL using Coil
+                        AsyncImage(
+                            model = product.imageUrl,
+                            contentDescription = product.name ?: "product",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Fit,
+                            placeholder = painterResource(id = product.imageRes),
+                            error = painterResource(id = product.imageRes)
+                        )
+                    } else {
+                        // Fallback to local image resource
+                        Image(
+                            painter = painterResource(id = product.imageRes),
+                            contentDescription = product.name ?: "product",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -155,7 +172,7 @@ fun ProductCardPreview() {
     GSshopTheme {
         ProductCard(
             product = Product(
-                id = 1,
+                id = "1",
                 name = "Organic Bananas",
                 weight = "7pcs, Priceg",
                 price = 4.99,

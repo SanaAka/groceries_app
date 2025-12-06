@@ -42,24 +42,54 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import com.example.groceries_app.R
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.viewmodel.AuthState
+import com.example.groceries_app.viewmodel.AuthViewModel
 
 @Composable
 fun SignUpScreen(
     modifier: Modifier = Modifier,
-    onSignUpClick: (username: String, email: String, password: String) -> Unit = { _, _, _ -> },
+    onSignUpClick: (email: String, password: String, name: String) -> Unit = { _, _, _ -> },
     onLoginClick: () -> Unit = {},
     onSignInClick: () -> Unit = {},
     onBackClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
-    onPrivacyClick: () -> Unit = {}
+    onPrivacyClick: () -> Unit = {},
+    onSignUpSuccess: () -> Unit = {},
+    viewModel: AuthViewModel = viewModel()
 ) {
-    var username by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    val authState by viewModel.authState.collectAsState()
+    val scope = rememberCoroutineScope()
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    // Handle auth state changes
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Success -> {
+                onSignUpSuccess()
+            }
+            is AuthState.Error -> {
+                errorMessage = (authState as AuthState.Error).message
+                isLoading = false
+            }
+            is AuthState.Loading -> {
+                isLoading = true
+            }
+            else -> {}
+        }
+    }
 
     Box(
         modifier = modifier
@@ -128,14 +158,14 @@ fun SignUpScreen(
                     .padding(bottom = 8.dp)
             )
 
-            // Username TextField
+            // Username TextField (mapped to name for API)
             OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
+                value = name,
+                onValueChange = { name = it },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        text = "Afsar Hossen Shuvo",
+                        text = "John Doe",
                         color = Color.Gray
                     )
                 },
@@ -280,23 +310,59 @@ fun SignUpScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Error message
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage ?: "",
+                    fontSize = 14.sp,
+                    color = Color.Red,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                )
+            }
+
             // Sign Up Button
             Button(
-                onClick = { onSignUpClick(username, email, password) },
+                onClick = { 
+                    scope.launch {
+                        errorMessage = null
+                        isLoading = true
+                        viewModel.signUp(
+                            email = email,
+                            password = password,
+                            name = name.ifEmpty { "User" }
+                        )
+                        onSignUpClick(
+                            email, 
+                            password,
+                            name.ifEmpty { "User" }
+                        )
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(67.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NectarGreen
                 ),
-                shape = RoundedCornerShape(19.dp)
+                shape = RoundedCornerShape(19.dp),
+                enabled = !isLoading && email.isNotEmpty() && 
+                          password.isNotEmpty() && name.isNotEmpty()
             ) {
-                Text(
-                    text = "Sign Up",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
+                if (isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Sign Up",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

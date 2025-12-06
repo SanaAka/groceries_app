@@ -26,8 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.utils.SessionManager
 
 data class AccountMenuItem(
     val icon: ImageVector,
@@ -41,6 +46,13 @@ fun AccountScreen(
     onMenuItemClick: (String) -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    
+    // Get user info from session
+    val userName = remember { sessionManager.getUsername() ?: "Guest User" }
+    val userEmail = remember { sessionManager.getEmail() ?: "guest@example.com" }
+    
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -49,9 +61,9 @@ fun AccountScreen(
     ) {
         // Profile Header
         ProfileHeader(
-            name = "Afsar Hossen",
-            email = "Imshuvo97@gmail.com",
-            profileImageRes = com.example.groceries_app.R.drawable.img_1, // Replace with actual profile image
+            name = userName,
+            email = userEmail,
+            profileImageRes = com.example.groceries_app.R.drawable.img_1,
             onEditClick = { onMenuItemClick("edit_profile") }
         )
 
@@ -90,7 +102,10 @@ fun AccountScreen(
 
         // Logout Button
         Button(
-            onClick = onLogout,
+            onClick = {
+                sessionManager.clearSession()
+                onLogout()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 25.dp)

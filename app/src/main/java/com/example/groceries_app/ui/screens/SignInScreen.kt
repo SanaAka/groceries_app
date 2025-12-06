@@ -41,7 +41,7 @@ fun SignInScreen(
     modifier: Modifier = Modifier,
     onGoogleSignIn: () -> Unit = {},
     onFacebookSignIn: () -> Unit = {},
-    onPhoneSignIn: () -> Unit = {},
+    onEmailSignIn: () -> Unit = {},
     onSignUpClick: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
@@ -91,58 +91,7 @@ fun SignInScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Phone Number Input
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .background(Color.White)
-                    .clickable { onPhoneSignIn() }
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Bangladesh Flag Icon (placeholder)
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color(0xFFE8E8E8), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "🇧🇩",
-                        fontSize = 24.sp
-                    )
-                }
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Text(
-                    text = "+880",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Black
-                )
-            }
-
-            // Divider
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Color(0xFFE2E2E2))
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Social Login Text
-            Text(
-                text = "Or connect with social media",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
-                color = Color.Gray,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -209,6 +158,27 @@ fun SignInScreen(
                         color = Color.White
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Email Login Button
+            Button(
+                onClick = onEmailSignIn,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(67.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NectarGreen
+                ),
+                shape = RoundedCornerShape(19.dp)
+            ) {
+                Text(
+                    text = "Continue with Email",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))

@@ -23,17 +23,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
-import com.example.groceries_app.viewmodel.ProductViewModel
-import com.example.groceries_app.data.network.Resource
+import com.example.groceries_app.viewmodel.NectarProductViewModel
+import com.example.groceries_app.viewmodel.NectarProductState
+import com.example.groceries_app.utils.toUiProducts
 
 data class SearchProduct(
-    val id: Int,
+    val id: String,
     val name: String,
     val size: String,
     val price: Double,
-    val imageRes: Int
+    val imageRes: Int,
+    val imageUrl: String? = null  // Support for API image URLs
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,53 +51,45 @@ fun SearchResultsScreen(
 ) {
     var searchQuery by remember { mutableStateOf(initialQuery) }
 
-    // API Integration - Get ViewModel
-    val productViewModel: ProductViewModel = viewModel()
-    val searchState by productViewModel.productsState.collectAsState()
+    // API Integration - Use NectarProductViewModel
+    val productViewModel: NectarProductViewModel = viewModel()
+    val productsState by productViewModel.productsState.collectAsState()
 
     // Search when query changes
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotEmpty()) {
-            productViewModel.searchProducts(searchQuery)
+            productViewModel.loadProducts()
         }
     }
 
-    // Sample products - fallback data
-    val allProducts = remember {
-        listOf(
-            SearchProduct(1, "Egg Chicken Red", "4pcs, Price", 1.99, com.example.groceries_app.R.drawable.img_4),
-            SearchProduct(2, "Egg Chicken White", "180g, Price", 1.50, com.example.groceries_app.R.drawable.img_4),
-            SearchProduct(3, "Egg Pasta", "30gm, Price", 15.99, com.example.groceries_app.R.drawable.img_4),
-            SearchProduct(4, "Egg Noodles", "2L, Price", 15.99, com.example.groceries_app.R.drawable.img_4),
-            SearchProduct(5, "Mayonnais Eggless", "250ml, Price", 4.99, com.example.groceries_app.R.drawable.img_4),
-            SearchProduct(6, "Egg Noodles", "500g, Price", 12.99, com.example.groceries_app.R.drawable.img_4)
-        )
+    // Load products from API on component mount
+    LaunchedEffect(Unit) {
+        productViewModel.loadProducts()
     }
 
-    // Get filtered products from API or fallback
-    val filteredProducts = when (searchState) {
-        is Resource.Success -> {
-            // Convert API products to SearchProduct
-            searchState.data?.products?.map { apiProduct ->
-                SearchProduct(
-                    id = apiProduct.id,
-                    name = apiProduct.productName,  // Use productName instead of name
-                    size = apiProduct.unit ?: apiProduct.weight ?: "1kg",
-                    price = apiProduct.price,
-                    imageRes = com.example.groceries_app.R.drawable.img_4
-                )
-            } ?: allProducts
-        }
-        else -> {
-            // Use local filtering as fallback
-            if (searchQuery.isEmpty()) {
-                allProducts
-            } else {
-                allProducts.filter { product ->
-                    product.name.contains(searchQuery, ignoreCase = true)
+    // Get filtered products from API
+    val filteredProducts = when (val state = productsState) {
+        is NectarProductState.Success -> {
+            // Convert API products to SearchProduct and filter by search query
+            state.products
+                .filter { product ->
+                    searchQuery.isEmpty() || 
+                    (product.name?.contains(searchQuery, ignoreCase = true) == true)
                 }
-            }
+                .toUiProducts()
+                .map { uiProduct ->
+                    SearchProduct(
+                        id = uiProduct.id,
+                        name = uiProduct.name ?: "Unknown",
+                        size = uiProduct.weight ?: "General",
+                        price = uiProduct.price,
+                        imageRes = uiProduct.imageRes,
+                        imageUrl = uiProduct.imageUrl
+                    )
+                }
         }
+        is NectarProductState.Loading -> emptyList()
+        is NectarProductState.Error -> emptyList()
     }
 
     Column(
@@ -165,8 +160,17 @@ fun SearchResultsScreen(
             }
         }
 
+        // Loading State
+        if (productsState is NectarProductState.Loading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = NectarGreen)
+            }
+        }
         // Products Grid
-        if (filteredProducts.isEmpty()) {
+        else if (filteredProducts.isEmpty()) {
             // Empty State
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -243,12 +247,23 @@ fun SearchProductCard(
                     .height(120.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(id = product.imageRes),
-                    contentDescription = product.name,
-                    modifier = Modifier.size(100.dp),
-                    contentScale = ContentScale.Fit
-                )
+                if (product.imageUrl != null && product.imageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        modifier = Modifier.size(100.dp),
+                        contentScale = ContentScale.Fit,
+                        placeholder = painterResource(id = product.imageRes),
+                        error = painterResource(id = product.imageRes)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = product.imageRes),
+                        contentDescription = product.name,
+                        modifier = Modifier.size(100.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -330,7 +345,7 @@ fun SearchProductCardPreview() {
     GSshopTheme {
         SearchProductCard(
             product = SearchProduct(
-                1,
+                "1",
                 "Egg Chicken Red",
                 "4pcs, Price",
                 1.99,

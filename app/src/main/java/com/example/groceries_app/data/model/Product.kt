@@ -2,68 +2,127 @@ package com.example.groceries_app.data.model
 
 import com.google.gson.annotations.SerializedName
 
+// Matches nectar-api ProductResponse
 data class Product(
-    @SerializedName("id")
-    val id: Int = 0,
-
-    @SerializedName("title")  // DummyJSON uses "title" instead of "name"
-    val title: String? = null,
-
+    @SerializedName("uuid")
+    val uuid: String = "",
+    
     @SerializedName("name")
     val name: String? = null,
-
+    
     @SerializedName("description")
     val description: String? = null,
-
+    
     @SerializedName("price")
     val price: Double = 0.0,
-
-    @SerializedName("image")
+    
+    @SerializedName("imageUrl")
     val imageUrl: String? = null,
-
-    @SerializedName("thumbnail")  // DummyJSON uses "thumbnail" for image
-    val thumbnail: String? = null,
-
+    
+    @SerializedName("isActive")
+    val isActive: Boolean = true,
+    
     @SerializedName("category")
     val category: String? = null,
-
-    @SerializedName("rating")
-    val rating: Double? = null,
-
-    @SerializedName("stock")
-    val stock: Int? = null,
-
-    @SerializedName("weight")
-    val weight: String? = null,
-
-    @SerializedName("unit")
-    val unit: String? = null,
-
-    @SerializedName("discount")
-    val discount: Double? = null,
-
-    @SerializedName("discountPercentage")  // DummyJSON field
-    val discountPercentage: Double? = null,
-
+    
     @SerializedName("isFavorite")
     val isFavorite: Boolean = false
-) {
-    // Helper property to get the actual name from either field
-    val productName: String
-        get() = title ?: name ?: "Unknown Product"
-}
+)
 
+// Response from GET /api/v1/products
+data class ProductsResponse(
+    @SerializedName("products")
+    val products: List<Product>
+)
+
+// Matches nectar-api ProductRequest
+data class ProductRequest(
+    @SerializedName("name")
+    val name: String,
+    
+    @SerializedName("description")
+    val description: String? = null,
+    
+    @SerializedName("price")
+    val price: Double,
+    
+    @SerializedName("imageUrl")
+    val imageUrl: String? = null,
+    
+    @SerializedName("categoryName")
+    val categoryName: String? = null
+)
+
+// Matches nectar-api ProductUpdate
+data class ProductUpdate(
+    @SerializedName("name")
+    val name: String? = null,
+    
+    @SerializedName("description")
+    val description: String? = null,
+    
+    @SerializedName("price")
+    val price: Double? = null,
+    
+    @SerializedName("imageUrl")
+    val imageUrl: String? = null,
+    
+    @SerializedName("isActive")
+    val isActive: Boolean? = null,
+    
+    @SerializedName("categoryName")
+    val categoryName: String? = null
+)
+
+// For backwards compatibility with old UI code
 data class ProductListResponse(
     @SerializedName("products")
     val products: List<Product>,
 
     @SerializedName("total")
-    val total: Int,
+    val total: Int? = null,
 
     @SerializedName("page")
-    val page: Int,
+    val page: Int? = null,
 
     @SerializedName("limit")
-    val limit: Int
+    val limit: Int? = null
+)
+
+// Category data model
+data class Category(
+    @SerializedName("uuid")
+    val uuid: String = "",
+    
+    @SerializedName("name")
+    val name: String = "",
+    
+    @SerializedName("description")
+    val description: String? = null,
+    
+    @SerializedName("imageUrl")
+    val imageUrl: String? = null,
+    
+    @SerializedName("audit")
+    val audit: Audit? = null
+)
+
+data class Audit(
+    @SerializedName("createdBy")
+    val createdBy: String? = null,
+    
+    @SerializedName("updatedBy")
+    val updatedBy: String? = null,
+    
+    @SerializedName("createdAt")
+    val createdAt: String? = null,
+    
+    @SerializedName("updatedAt")
+    val updatedAt: String? = null
+)
+
+data class CategoriesResponse(
+    @SerializedName("categories")
+    val categories: List<Category>
 )
 

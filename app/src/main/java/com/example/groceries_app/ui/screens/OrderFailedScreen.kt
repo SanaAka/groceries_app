@@ -19,12 +19,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.viewmodel.OrderViewModel
 
 @Composable
 fun OrderFailedDialog(
     modifier: Modifier = Modifier,
+    errorMessage: String? = null,
     onDismiss: () -> Unit = {},
     onTryAgain: () -> Unit = {},
     onBackToHome: () -> Unit = {}
@@ -120,9 +123,9 @@ fun OrderFailedDialog(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Subtitle
+                    // Subtitle with error message
                     Text(
-                        text = "Something went tembly wrong.",
+                        text = errorMessage ?: "Something went terribly wrong.",
                         fontSize = 16.sp,
                         color = Color(0xFF7C7C7C),
                         textAlign = TextAlign.Center
@@ -174,12 +177,22 @@ fun OrderFailedScreen(
     modifier: Modifier = Modifier,
     onDismiss: () -> Unit = {},
     onTryAgain: () -> Unit = {},
-    onBackToHome: () -> Unit = {}
+    onBackToHome: () -> Unit = {},
+    orderViewModel: OrderViewModel = viewModel()
 ) {
     var showDialog by remember { mutableStateOf(true) }
+    val orderError by orderViewModel.orderError.collectAsState()
+    
+    // Clear error state when leaving this screen
+    DisposableEffect(Unit) {
+        onDispose {
+            orderViewModel.clearOrderState()
+        }
+    }
 
     if (showDialog) {
         OrderFailedDialog(
+            errorMessage = orderError,
             onDismiss = {
                 showDialog = false
                 onDismiss()

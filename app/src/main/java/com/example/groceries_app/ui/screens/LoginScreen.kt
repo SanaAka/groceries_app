@@ -41,9 +41,16 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import com.example.groceries_app.R
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.viewmodel.AuthState
+import com.example.groceries_app.viewmodel.AuthViewModel
 
 @Composable
 fun LoginScreen(
@@ -51,11 +58,34 @@ fun LoginScreen(
     onLoginClick: (email: String, password: String) -> Unit = { _, _ -> },
     onBackClick: () -> Unit = {},
     onForgotPasswordClick: () -> Unit = {},
-    onSignupClick: () -> Unit = {}
+    onSignupClick: () -> Unit = {},
+    onLoginSuccess: () -> Unit = {},
+    viewModel: AuthViewModel = viewModel()
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    val authState by viewModel.authState.collectAsState()
+    val scope = rememberCoroutineScope()
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    // Handle auth state changes
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Success -> {
+                onLoginSuccess()
+            }
+            is AuthState.Error -> {
+                errorMessage = (authState as AuthState.Error).message
+                isLoading = false
+            }
+            is AuthState.Loading -> {
+                isLoading = true
+            }
+            else -> {}
+        }
+    }
 
     Box(
         modifier = modifier
@@ -214,23 +244,50 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Error message
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage ?: "",
+                    fontSize = 14.sp,
+                    color = Color.Red,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                )
+            }
+
             // Log In Button
             Button(
-                onClick = { onLoginClick(email, password) },
+                onClick = {
+                    scope.launch {
+                        errorMessage = null
+                        isLoading = true
+                        viewModel.login(email, password)
+                        onLoginClick(email, password)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(67.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NectarGreen
                 ),
-                shape = RoundedCornerShape(19.dp)
+                shape = RoundedCornerShape(19.dp),
+                enabled = !isLoading && email.isNotEmpty() && password.isNotEmpty()
             ) {
-                Text(
-                    text = "Log In",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
+                if (isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Log In",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

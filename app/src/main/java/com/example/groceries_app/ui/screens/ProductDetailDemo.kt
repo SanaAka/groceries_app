@@ -15,27 +15,18 @@ fun ProductDetailDemo() {
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
 
     if (showProductDetail && selectedProduct != null) {
-        // Convert Product to ProductDetail
-        val product = selectedProduct!!
-        val productDetail = ProductDetail(
-            id = product.id,
-            name = product.name ?: "Unknown Product",
-            weight = product.weight ?: "",
-            price = product.price,
-            imageRes = product.imageRes,
-            description = "Apples Are Nutritious. Apples May Be Good For Weight Loss. Apples May Be Good For Your Heart. As Part Of A Healtful And Varied Diet.",
-            nutritionInfo = "100gr"
-        )
+        // Show product detail by ID
+        val productId = selectedProduct!!.id
 
         ProductDetailScreen(
-            product = productDetail,
+            productId = productId,
             onBackClick = {
                 showProductDetail = false
                 selectedProduct = null
             },
             onAddToBasket = { quantity ->
                 // Handle add to basket
-                println("Added $quantity ${productDetail.name} to basket")
+                println("Added $quantity items to basket")
             }
         )
     } else {

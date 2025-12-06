@@ -39,33 +39,3 @@ data class Address(
     val country: String
 )
 
-data class LoginRequest(
-    @SerializedName("email")
-    val email: String,
-
-    @SerializedName("password")
-    val password: String
-)
-
-data class SignUpRequest(
-    @SerializedName("name")
-    val name: String,
-
-    @SerializedName("email")
-    val email: String,
-
-    @SerializedName("password")
-    val password: String
-)
-
-data class AuthResponse(
-    @SerializedName("user")
-    val user: User,
-
-    @SerializedName("token")
-    val token: String,
-
-    @SerializedName("refreshToken")
-    val refreshToken: String? = null
-)
-
