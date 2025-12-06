@@ -21,15 +21,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import coil.compose.AsyncImage
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.viewmodel.NectarProductViewModel
+import com.example.groceries_app.viewmodel.NectarProductState
+import com.example.groceries_app.utils.toUiProducts
 
 data class BeverageProduct(
-    val id: Int,
+    val id: String,
     val name: String,
     val size: String,
     val price: Double,
-    val imageRes: Int
+    val imageRes: Int,
+    val imageUrl: String? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,18 +47,40 @@ fun CategoryProductsScreen(
     onBackClick: () -> Unit = {},
     onFilterClick: () -> Unit = {},
     onProductClick: (BeverageProduct) -> Unit = {},
-    onAddToCart: (BeverageProduct) -> Unit = {}
+    onAddToCart: (BeverageProduct) -> Unit = {},
+    viewModel: NectarProductViewModel = viewModel()
 ) {
-    // Sample beverage products
-    val products = remember {
-        listOf(
-            BeverageProduct(1, "Diet Coke", "355ml, Price", 1.99, com.example.groceries_app.R.drawable.img_4),
-            BeverageProduct(2, "Sprite Can", "325ml, Price", 1.50, com.example.groceries_app.R.drawable.img_4),
-            BeverageProduct(3, "Apple & Grape\nJuice", "2L, Price", 15.99, com.example.groceries_app.R.drawable.img_4),
-            BeverageProduct(4, "Orange Juice", "2L, Price", 15.99, com.example.groceries_app.R.drawable.img_4),
-            BeverageProduct(5, "Coca Cola Can", "325ml, Price", 4.99, com.example.groceries_app.R.drawable.img_4),
-            BeverageProduct(6, "Pepsi Can", "330ml, Price", 4.99, com.example.groceries_app.R.drawable.img_4)
-        )
+    val state by viewModel.productsState.collectAsState()
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadProducts()
+    }
+    
+    // Filter products by category and convert to BeverageProduct
+    val products = when (state) {
+        is NectarProductState.Success -> {
+            val apiProducts = (state as NectarProductState.Success).products
+            // Filter by category from the API product's category field
+            val filteredProducts = if (categoryName == "Beverages") {
+                apiProducts.filter { it.category?.equals("Beverages", ignoreCase = true) == true }
+            } else {
+                apiProducts.filter { it.category?.contains(categoryName, ignoreCase = true) == true }
+            }
+            
+            // Convert to UI products then to BeverageProduct
+            filteredProducts.toUiProducts().map { product ->
+                BeverageProduct(
+                    id = product.id,
+                    name = product.name ?: "Unknown",
+                    size = product.weight ?: "No size",
+                    price = product.price,
+                    imageRes = com.example.groceries_app.R.drawable.img_4,
+                    imageUrl = product.imageUrl
+                )
+            }
+        }
+        is NectarProductState.Loading -> emptyList()
+        is NectarProductState.Error -> emptyList()
     }
 
     Scaffold(
@@ -92,21 +121,62 @@ fun CategoryProductsScreen(
         },
         containerColor = Color.White
     ) { paddingValues ->
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(products) { product ->
-                BeverageProductCard(
-                    product = product,
-                    onProductClick = { onProductClick(product) },
-                    onAddToCart = { onAddToCart(product) }
-                )
+        // Show loading state
+        if (state is NectarProductState.Loading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = NectarGreen)
+            }
+        }
+        // Show empty state
+        else if (products.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "No products found",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Try browsing other categories",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+        // Show products grid
+        else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(products) { product ->
+                    BeverageProductCard(
+                        product = product,
+                        onProductClick = { onProductClick(product) },
+                        onAddToCart = { onAddToCart(product) }
+                    )
+                }
             }
         }
     }
@@ -145,13 +215,23 @@ fun BeverageProductCard(
                     .height(120.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(id = product.imageRes),
-                    contentDescription = product.name,
-                    modifier = Modifier
-                        .size(100.dp),
-                    contentScale = ContentScale.Fit
-                )
+                if (product.imageUrl != null) {
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        modifier = Modifier.size(100.dp),
+                        contentScale = ContentScale.Fit,
+                        placeholder = painterResource(id = product.imageRes),
+                        error = painterResource(id = product.imageRes)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = product.imageRes),
+                        contentDescription = product.name,
+                        modifier = Modifier.size(100.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -226,7 +306,7 @@ fun BeverageProductCardPreview() {
     GSshopTheme {
         BeverageProductCard(
             product = BeverageProduct(
-                1,
+                "1",
                 "Diet Coke",
                 "355ml, Price",
                 1.99,

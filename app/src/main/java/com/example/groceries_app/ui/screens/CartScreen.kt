@@ -14,42 +14,73 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.utils.SessionManager
+import com.example.groceries_app.viewmodel.OrderViewModel
+import com.example.groceries_app.data.model.OrderItemRequest
+import com.example.groceries_app.data.model.OrderRequest
+import java.math.BigDecimal
+import java.util.UUID
 
 data class CartItem(
-    val id: Int,
+    val id: String,  // Changed from Int to String for UUID support
     val name: String,
-    val weight: String,
+    val size: String = "",
+    val weight: String = "",
     val price: Double,
     val imageRes: Int,
-    var quantity: Int = 1
+    var quantity: Int = 1,
+    val imageUrl: String? = null,
+    val productUuid: String? = null  // Added to link to actual product
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CartScreen(
     modifier: Modifier = Modifier,
-    onOrderPlaced: () -> Unit = {}
+    onOrderPlaced: () -> Unit = {},
+    onOrderFailed: () -> Unit = {},
+    cartItems: List<CartItem> = emptyList() // Cart items passed from parent/ViewModel
 ) {
-    // Sample cart items
-    var cartItems by remember {
-        mutableStateOf(
-            listOf(
-                CartItem(1, "Bell Pepper Red", "1kg, Price", 4.99, com.example.groceries_app.R.drawable.img_4, 1),
-                CartItem(2, "Egg Chicken Red", "4pcs, Price", 1.99, com.example.groceries_app.R.drawable.img_1, 1),
-                CartItem(3, "Organic Bananas", "12kg, Price", 3.00, com.example.groceries_app.R.drawable.img_2, 1),
-                CartItem(4, "Ginger", "250gm, Price", 2.99, com.example.groceries_app.R.drawable.img_3, 1)
-            )
-        )
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
+    val orderViewModel: OrderViewModel = viewModel()
+    val isCreatingOrder by orderViewModel.isCreatingOrder.collectAsState()
+    val orderError by orderViewModel.orderError.collectAsState()
+    val createdOrder by orderViewModel.createdOrder.collectAsState()
+    
+    // Cart items managed externally
+    var items by remember { mutableStateOf(cartItems) }
+    
+    // Update when cartItems prop changes
+    LaunchedEffect(cartItems) {
+        items = cartItems
+    }
+    
+    // Handle successful order creation
+    LaunchedEffect(createdOrder) {
+        if (createdOrder != null) {
+            onOrderPlaced()
+        }
+    }
+    
+    // Handle order creation error
+    LaunchedEffect(orderError) {
+        if (orderError != null) {
+            onOrderFailed()
+        }
     }
 
-    val totalAmount = cartItems.sumOf { it.price * it.quantity }
+    val totalAmount = items.sumOf { it.price * it.quantity }
     var showCheckoutSheet by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -114,17 +145,17 @@ fun CartScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            items(cartItems) { item ->
+            items(items) { item ->
                 CartItemCard(
                     cartItem = item,
                     onQuantityChange = { newQuantity ->
-                        cartItems = cartItems.map {
+                        items = items.map {
                             if (it.id == item.id) it.copy(quantity = newQuantity)
                             else it
                         }
                     },
                     onRemove = {
-                        cartItems = cartItems.filter { it.id != item.id }
+                        items = items.filter { it.id != item.id }
                     }
                 )
                 HorizontalDivider(
@@ -152,9 +183,38 @@ fun CartScreen(
             },
             onPlaceOrder = {
                 showCheckoutSheet = false
-                onOrderPlaced()
+                
+                // Create order via API
+                val orderItems = items.map { cartItem ->
+                    OrderItemRequest(
+                        productUuid = cartItem.productUuid ?: UUID.randomUUID().toString(),
+                        quantity = cartItem.quantity,
+                        price = BigDecimal.valueOf(cartItem.price)
+                    )
+                }
+                
+                val orderRequest = OrderRequest(
+                    orderNumber = "ORD-${System.currentTimeMillis()}",
+                    totalPrice = BigDecimal.valueOf(totalAmount),
+                    status = com.example.groceries_app.data.model.Status.PENDING,
+                    items = orderItems
+                )
+                
+                // Get token from SessionManager
+                val token = sessionManager.getAccessToken() ?: ""
+                orderViewModel.createOrder(orderRequest, token)
             }
         )
+    }
+    
+    // Show loading indicator while creating order
+    if (isCreatingOrder) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = NectarGreen)
+        }
     }
 }
 
@@ -172,14 +232,27 @@ fun CartItemCard(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Product Image
-        Image(
-            painter = painterResource(id = cartItem.imageRes),
-            contentDescription = cartItem.name,
-            modifier = Modifier
-                .size(70.dp)
-                .padding(end = 16.dp),
-            contentScale = ContentScale.Fit
-        )
+        if (cartItem.imageUrl != null) {
+            AsyncImage(
+                model = cartItem.imageUrl,
+                contentDescription = cartItem.name,
+                modifier = Modifier
+                    .size(70.dp)
+                    .padding(end = 16.dp),
+                contentScale = ContentScale.Fit,
+                placeholder = painterResource(id = cartItem.imageRes),
+                error = painterResource(id = cartItem.imageRes)
+            )
+        } else {
+            Image(
+                painter = painterResource(id = cartItem.imageRes),
+                contentDescription = cartItem.name,
+                modifier = Modifier
+                    .size(70.dp)
+                    .padding(end = 16.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
 
         // Product Details
         Column(
@@ -212,7 +285,7 @@ fun CartItemCard(
             }
 
             Text(
-                text = cartItem.weight,
+                text = cartItem.size.ifEmpty { cartItem.weight },
                 fontSize = 14.sp,
                 color = Color(0xFF7C7C7C),
                 modifier = Modifier.padding(top = 4.dp)

@@ -18,15 +18,26 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.viewmodel.OrderViewModel
 
 @Composable
 fun OrderAcceptedScreen(
     modifier: Modifier = Modifier,
     onTrackOrder: () -> Unit = {},
-    onBackToHome: () -> Unit = {}
+    onBackToHome: () -> Unit = {},
+    orderViewModel: OrderViewModel = viewModel()
 ) {
+    val createdOrder by orderViewModel.createdOrder.collectAsState()
+    
+    // Clear order state when leaving this screen
+    DisposableEffect(Unit) {
+        onDispose {
+            orderViewModel.clearOrderState()
+        }
+    }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -226,12 +237,24 @@ fun OrderAcceptedScreen(
                 textAlign = TextAlign.Center,
                 lineHeight = 36.sp
             )
+            
+            // Show order number if available
+            createdOrder?.let { order ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Order #${order.orderNumber}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = NectarGreen,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
             // Subtitle
             Text(
-                text = "Your items has been placcd and is on\nit's way to being processed",
+                text = "Your items have been placed and are on\ntheir way to being processed",
                 fontSize = 16.sp,
                 color = Color(0xFF7C7C7C),
                 textAlign = TextAlign.Center,

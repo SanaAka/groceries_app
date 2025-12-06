@@ -1,6 +1,8 @@
 package com.example.groceries_app.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -10,13 +12,28 @@ import androidx.navigation.navArgument
 import com.example.groceries_app.ui.screens.AccountScreen
 import com.example.groceries_app.R
 import com.example.groceries_app.ui.screens.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.groceries_app.viewmodel.CartViewModel
 
+/**
+ * Navigation graph for the Groceries App
+ * 
+ * Integrated with nectar-api backend:
+ * - Authentication: Uses email/password login and phoneNumber/name/gender/dob registration
+ * - Products: Fetches from nectar-api with UUID-based identifiers
+ * - Orders: Creates orders with orderNumber, totalPrice, status, and items
+ * 
+ * All API models are synchronized with the Spring Boot backend
+ */
 @Composable
 fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     startDestination: String = Screen.Splash.route
 ) {
+    // Shared CartViewModel across navigation
+    val cartViewModel: CartViewModel = viewModel()
+    
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -53,8 +70,8 @@ fun NavGraph(
                     // After Facebook sign in, go to location selection
                     navController.navigate(Screen.LocationSelection.route)
                 },
-                onPhoneSignIn = {
-                    navController.navigate(Screen.MobileNumber.route)
+                onEmailSignIn = {
+                    navController.navigate(Screen.Login.route)
                 },
                 onSignUpClick = {
                     navController.navigate(Screen.SignUp.route)
@@ -68,9 +85,11 @@ fun NavGraph(
         // Sign Up Screen
         composable(route = Screen.SignUp.route) {
             SignUpScreen(
-                onSignUpClick = { username, email, password ->
-                    // After successful sign up, go to location selection
-                    navController.navigate(Screen.LocationSelection.route)
+                onSignUpClick = { email, password, name ->
+                    // After successful sign up, go to location selection or home
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
                 },
                 onLoginClick = {
                     navController.navigate(Screen.Login.route)
@@ -86,30 +105,6 @@ fun NavGraph(
                 },
                 onPrivacyClick = {
                     // TODO: Navigate to privacy screen
-                }
-            )
-        }
-
-        // Mobile Number Screen
-        composable(route = Screen.MobileNumber.route) {
-            MobileNumberScreen(
-                onBackClick = {
-                    navController.navigateUp()
-                },
-                onNextClick = { phoneNumber ->
-                    navController.navigate(Screen.VerificationCode.route)
-                }
-            )
-        }
-
-        // Verification Code Screen
-        composable(route = Screen.VerificationCode.route) {
-            VerificationCodeScreen(
-                onBackClick = {
-                    navController.navigateUp()
-                },
-                onVerifyClick = { code ->
-                    navController.navigate(Screen.LocationSelection.route)
                 }
             )
         }
@@ -132,6 +127,7 @@ fun NavGraph(
         composable(route = Screen.Login.route) {
             LoginScreen(
                 onLoginClick = { email, password ->
+                    // TODO: Call AuthViewModel.login with nectar-api integration
                     // After successful login, go to home
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Welcome.route) { inclusive = true }
@@ -155,6 +151,24 @@ fun NavGraph(
                 modifier = modifier,
                 onProductClick = { product ->
                     navController.navigate(Screen.ProductDetail.createRoute(product.id))
+                },
+                onAddToCart = { product ->
+                    cartViewModel.addToCart(
+                        CartItem(
+                            id = product.id,
+                            name = product.name ?: "Unknown",
+                            size = product.weight ?: "",
+                            weight = product.weight ?: "",
+                            price = product.price,
+                            imageRes = product.imageRes,
+                            quantity = 1,
+                            imageUrl = product.imageUrl,
+                            productUuid = product.id  // Store product UUID for API
+                        )
+                    )
+                },
+                onSearchClick = { query ->
+                    navController.navigate(Screen.SearchResults.createRoute(query))
                 }
             )
         }
@@ -176,13 +190,21 @@ fun NavGraph(
 
         // Cart Screen
         composable(route = "cart") {
+            val cartItems by cartViewModel.cartItems.collectAsState()
             CartScreen(
                 modifier = modifier,
+                cartItems = cartItems,
                 onOrderPlaced = {
                     // Navigate to order success screen
                     navController.navigate(Screen.OrderAccepted.route) {
                         popUpTo("cart") { inclusive = true }
                     }
+                    // Clear cart after order placed
+                    cartViewModel.clearCart()
+                },
+                onOrderFailed = {
+                    // Navigate to order failed screen
+                    navController.navigate(Screen.OrderFailed.route)
                 }
             )
         }
@@ -191,14 +213,21 @@ fun NavGraph(
         composable(route = "favourite") {
             FavouriteScreen(
                 modifier = modifier,
-                onProductClick = { product ->
+                cartViewModel = cartViewModel,
+                onProductClick = { favouriteItem ->
                     // Navigate to product detail
-                    navController.navigate(Screen.ProductDetail.createRoute(product.id))
+                    navController.navigate(Screen.ProductDetail.createRoute(favouriteItem.id))
                 },
                 onAddAllToCart = {
-                    // TODO: Add all favourite items to cart
-                    // Then navigate to cart
-                    navController.navigate("cart")
+                    // Navigate to cart after adding all items
+                    navController.navigate("cart") {
+                        // Don't add to back stack, just switch tabs
+                        popUpTo(Screen.Home.route) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
             )
         }
@@ -253,29 +282,21 @@ fun NavGraph(
             route = Screen.ProductDetail.route,
             arguments = listOf(
                 navArgument("productId") {
-                    type = NavType.IntType
+                    type = NavType.StringType
                 }
             )
         ) { backStackEntry ->
-            val productId = backStackEntry.arguments?.getInt("productId") ?: 0
-
-            // Sample product data - in real app, you'd fetch this based on productId
-            val product = ProductDetail(
-                id = productId,
-                name = "Natural Red Apple",
-                weight = "1kg, Price",
-                price = 4.99,
-                imageRes = R.drawable.img_4,
-                description = "Apples Are Nutritious. Apples May Be Good For Weight Loss. Apples May Be Good For Your Heart. As Part Of A Healtful And Varied Diet."
-            )
+            val productId = backStackEntry.arguments?.getString("productId") ?: ""
 
             ProductDetailScreen(
-                product = product,
+                productId = productId,
+                cartViewModel = cartViewModel,
                 onBackClick = {
                     navController.navigateUp()
                 },
                 onAddToBasket = { quantity ->
-                    // Handle add to basket
+                    // Optionally navigate to cart or just stay on detail page
+                    // Removed auto-navigation to allow user to continue browsing
                 }
             )
         }
@@ -285,14 +306,14 @@ fun NavGraph(
             route = Screen.CategoryProducts.route,
             arguments = listOf(
                 navArgument("categoryId") {
-                    type = NavType.IntType
+                    type = NavType.StringType
                 },
                 navArgument("categoryName") {
                     type = NavType.StringType
                 }
             )
         ) { backStackEntry ->
-            val categoryId = backStackEntry.arguments?.getInt("categoryId") ?: 0
+            val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
             val categoryName = backStackEntry.arguments?.getString("categoryName") ?: "Products"
 
             CategoryProductsScreen(
@@ -306,8 +327,19 @@ fun NavGraph(
                 onProductClick = { product ->
                     navController.navigate(Screen.ProductDetail.createRoute(product.id))
                 },
-                onAddToCart = { product ->
-                    // Handle add to cart
+                onAddToCart = { beverageProduct ->
+                    cartViewModel.addToCart(
+                        CartItem(
+                            id = beverageProduct.id,
+                            name = beverageProduct.name,
+                            size = beverageProduct.size,
+                            weight = beverageProduct.size,
+                            price = beverageProduct.price,
+                            imageRes = beverageProduct.imageRes,
+                            quantity = 1,
+                            productUuid = beverageProduct.id  // Store product UUID for API
+                        )
+                    )
                 }
             )
         }
@@ -337,7 +369,18 @@ fun NavGraph(
                     navController.navigate(Screen.ProductDetail.createRoute(product.id))
                 },
                 onAddToCart = { product ->
-                    // Handle add to cart
+                    cartViewModel.addToCart(
+                        CartItem(
+                            id = product.id,
+                            name = product.name,
+                            size = product.size,
+                            weight = product.size,
+                            price = product.price,
+                            imageRes = product.imageRes,
+                            quantity = 1,
+                            productUuid = product.id  // Store product UUID for API
+                        )
+                    )
                 }
             )
         }
@@ -350,15 +393,15 @@ fun NavGraph(
                 },
                 onApplyFilter = { selectedCategories, selectedBrands ->
                     // Process filters and pass back to previous screen
-                    val categoryIds = selectedCategories.joinToString(",") { it.id.toString() }
-                    val brandIds = selectedBrands.joinToString(",") { it.id.toString() }
+                    val categoryNames = selectedCategories.joinToString(",") { it.name }
+                    val brandNames = selectedBrands.joinToString(",") { it.name }
 
                     navController.previousBackStackEntry
                         ?.savedStateHandle
-                        ?.set("selectedCategories", categoryIds)
+                        ?.set("selectedCategories", categoryNames)
                     navController.previousBackStackEntry
                         ?.savedStateHandle
-                        ?.set("selectedBrands", brandIds)
+                        ?.set("selectedBrands", brandNames)
 
                     navController.navigateUp()
                 }
@@ -370,6 +413,26 @@ fun NavGraph(
             OrderAcceptedScreen(
                 onTrackOrder = {
                     // TODO: Navigate to order tracking screen
+                },
+                onBackToHome = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        // Order Failed Screen
+        composable(route = Screen.OrderFailed.route) {
+            OrderFailedScreen(
+                onDismiss = {
+                    navController.navigateUp()
+                },
+                onTryAgain = {
+                    // Go back to cart to try again
+                    navController.navigate("cart") {
+                        popUpTo(Screen.OrderFailed.route) { inclusive = true }
+                    }
                 },
                 onBackToHome = {
                     navController.navigate(Screen.Home.route) {

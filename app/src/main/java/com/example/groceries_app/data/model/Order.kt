@@ -1,100 +1,98 @@
 package com.example.groceries_app.data.model
 
 import com.google.gson.annotations.SerializedName
+import java.math.BigDecimal
 
-data class Order(
-    @SerializedName("id")
-    val id: Int,
-
-    @SerializedName("userId")
-    val userId: Int,
-
-    @SerializedName("items")
-    val items: List<OrderItem>,
-
-    @SerializedName("totalAmount")
-    val totalAmount: Double,
-
-    @SerializedName("status")
-    val status: OrderStatus,
-
-    @SerializedName("deliveryAddress")
-    val deliveryAddress: Address,
-
-    @SerializedName("paymentMethod")
-    val paymentMethod: String,
-
-    @SerializedName("createdAt")
-    val createdAt: String,
-
-    @SerializedName("deliveryDate")
-    val deliveryDate: String? = null
-)
-
-data class OrderItem(
-    @SerializedName("productId")
-    val productId: Int,
-
-    @SerializedName("productName")
-    val productName: String,
-
-    @SerializedName("quantity")
-    val quantity: Int,
-
-    @SerializedName("price")
-    val price: Double,
-
-    @SerializedName("imageUrl")
-    val imageUrl: String? = null
-)
-
-enum class OrderStatus {
-    @SerializedName("pending")
-    PENDING,
-
-    @SerializedName("confirmed")
-    CONFIRMED,
-
-    @SerializedName("processing")
-    PROCESSING,
-
-    @SerializedName("shipped")
-    SHIPPED,
-
-    @SerializedName("delivered")
-    DELIVERED,
-
-    @SerializedName("cancelled")
-    CANCELLED
+// Status enum matching nectar-api
+enum class Status {
+    @SerializedName("PENDING") PENDING,
+    @SerializedName("PAID") PAID,
+    @SerializedName("SHIPPED") SHIPPED,
+    @SerializedName("COMPLETED") COMPLETED,
+    @SerializedName("CANCELLED") CANCELLED
 }
 
-data class CreateOrderRequest(
+// Order response from API
+data class OrderResponse(
+    @SerializedName("uuid")
+    val uuid: String,
+    
+    @SerializedName("orderNumber")
+    val orderNumber: String,
+    
+    @SerializedName("totalPrice")
+    val totalPrice: BigDecimal,
+    
+    @SerializedName("status")
+    val status: Status,
+    
     @SerializedName("items")
-    val items: List<CartItemRequest>,
-
-    @SerializedName("deliveryAddress")
-    val deliveryAddress: Address,
-
-    @SerializedName("paymentMethod")
-    val paymentMethod: String,
-
-    @SerializedName("promoCode")
-    val promoCode: String? = null
+    val items: List<OrderItemResponse>,
+    
+    @SerializedName("audit")
+    val audit: AuditResponse? = null
 )
 
-data class CartItemRequest(
-    @SerializedName("productId")
-    val productId: Int,
-
+// Order item response from API
+data class OrderItemResponse(
+    @SerializedName("uuid")
+    val uuid: String,
+    
+    @SerializedName("productName")
+    val productName: String,
+    
     @SerializedName("quantity")
-    val quantity: Int
+    val quantity: Int,
+    
+    @SerializedName("price")
+    val price: BigDecimal
 )
 
-data class OrderListResponse(
-    @SerializedName("orders")
-    val orders: List<Order>,
+// Audit metadata
+data class AuditResponse(
+    @SerializedName("createdAt")
+    val createdAt: String? = null,
+    
+    @SerializedName("updatedAt")
+    val updatedAt: String? = null,
+    
+    @SerializedName("createdBy")
+    val createdBy: String? = null,
+    
+    @SerializedName("updatedBy")
+    val updatedBy: String? = null
+)
 
-    @SerializedName("total")
-    val total: Int
+// Order request to create an order
+data class OrderRequest(
+    @SerializedName("orderNumber")
+    val orderNumber: String,
+    
+    @SerializedName("totalPrice")
+    val totalPrice: BigDecimal,
+    
+    @SerializedName("status")
+    val status: Status,
+    
+    @SerializedName("items")
+    val items: List<OrderItemRequest>
+)
+
+// Order item request
+data class OrderItemRequest(
+    @SerializedName("productUuid")
+    val productUuid: String,
+    
+    @SerializedName("quantity")
+    val quantity: Int,
+    
+    @SerializedName("price")
+    val price: BigDecimal
+)
+
+// Wrapper for GET /orders response
+data class OrdersListResponse(
+    @SerializedName("orders")
+    val orders: List<OrderResponse>
 )
 

@@ -24,44 +24,104 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
+import com.example.groceries_app.ui.screens.CartItem
+import com.example.groceries_app.viewmodel.CartViewModel
+import com.example.groceries_app.viewmodel.FavoriteProduct
+import com.example.groceries_app.viewmodel.FavoritesViewModel
+import com.example.groceries_app.viewmodel.NectarProductViewModel
+import com.example.groceries_app.viewmodel.NectarProductState
+import com.example.groceries_app.utils.toUiProducts
 import java.util.Locale
 
 data class ProductDetail(
-    val id: Int,
+    val id: String,  // Changed from Int to String to match Product.uuid
     val name: String,
     val weight: String,
     val price: Double,
     val imageRes: Int,
     val description: String,
-    val nutritionInfo: String = "100gr"
+    val nutritionInfo: String = "100gr",
+    val imageUrl: String? = null  // Support for API image URLs
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailScreen(
-    product: ProductDetail = ProductDetail(
-        id = 1,
-        name = "Natural Red Apple",
-        weight = "1kg, Price",
-        price = 4.99,
-        imageRes = com.example.groceries_app.R.drawable.img_4,
-        description = "Apples Are Nutritious. Apples May Be Good For Weight Loss. Apples May Be Good For Your Heart. As Part Of A Healtful And Varied Diet."
-    ),
+    productId: String,
+    modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onAddToBasket: (Int) -> Unit = {}
+    onAddToBasket: (Int) -> Unit = {},
+    cartViewModel: CartViewModel? = null
 ) {
+    val context = LocalContext.current
+    val favoritesViewModel = remember { FavoritesViewModel(context) }
+    val productViewModel: NectarProductViewModel = viewModel()
+    val productDetailState by productViewModel.productDetailState.collectAsState()
+    val isLoading by productViewModel.isLoading.collectAsState()
+    val favorites by favoritesViewModel.favorites.collectAsState()
+    
     var quantity by remember { mutableStateOf(1) }
-    var isFavorite by remember { mutableStateOf(false) }
+    val isFavorite = favorites.any { it.id == productId }
     var isProductDetailExpanded by remember { mutableStateOf(true) }
 
     val scrollState = rememberScrollState()
     val pagerState = rememberPagerState(pageCount = { 3 })
+    
+    // Fetch product details when screen loads
+    LaunchedEffect(productId) {
+        productViewModel.getProductByUuid(productId)
+    }
+    
+    // Convert API Product to ProductDetail
+    val product = productDetailState?.let { apiProduct ->
+        ProductDetail(
+            id = apiProduct.uuid ?: productId,
+            name = apiProduct.name ?: "Unknown Product",
+            weight = apiProduct.category ?: "N/A",  // Use category as weight
+            price = apiProduct.price,
+            imageRes = com.example.groceries_app.R.drawable.img_4, // Fallback
+            description = apiProduct.description ?: "No description available",
+            nutritionInfo = "100gr",
+            imageUrl = apiProduct.imageUrl
+        )
+    }
+    
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = NectarGreen)
+        }
+        return
+    }
+    
+    if (product == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Product not found", fontSize = 18.sp, color = Color.Gray)
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = onBackClick) {
+                    Text("Go Back")
+                }
+            }
+        }
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -92,7 +152,24 @@ fun ProductDetailScreen(
         },
         bottomBar = {
             Button(
-                onClick = { onAddToBasket(quantity) },
+                onClick = {
+                    product?.let { prod ->
+                        cartViewModel?.addToCart(
+                            CartItem(
+                                id = prod.id,
+                                name = prod.name,
+                                size = prod.weight,
+                                weight = prod.weight,
+                                price = prod.price,
+                                imageRes = prod.imageRes,
+                                quantity = quantity,
+                                imageUrl = prod.imageUrl,
+                                productUuid = prod.id
+                            )
+                        )
+                    }
+                    onAddToBasket(quantity)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
@@ -133,14 +210,29 @@ fun ProductDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            painter = painterResource(id = product.imageRes),
-                            contentDescription = product.name,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(250.dp),
-                            contentScale = ContentScale.Fit
-                        )
+                        if (product.imageUrl != null && product.imageUrl.isNotEmpty()) {
+                            // Load image from URL using Coil
+                            AsyncImage(
+                                model = product.imageUrl,
+                                contentDescription = product.name,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(250.dp),
+                                contentScale = ContentScale.Fit,
+                                placeholder = painterResource(id = product.imageRes),
+                                error = painterResource(id = product.imageRes)
+                            )
+                        } else {
+                            // Fallback to local image
+                            Image(
+                                painter = painterResource(id = product.imageRes),
+                                contentDescription = product.name,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(250.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
                     }
                 }
 
@@ -192,7 +284,19 @@ fun ProductDetailScreen(
                 }
 
                 IconButton(
-                    onClick = { isFavorite = !isFavorite }
+                    onClick = {
+                        product?.let {
+                            favoritesViewModel.toggleFavorite(
+                                FavoriteProduct(
+                                    id = it.id,
+                                    name = it.name,
+                                    price = it.price,
+                                    imageUrl = it.imageUrl,
+                                    category = it.weight
+                                )
+                            )
+                        }
+                    }
                 ) {
                     Icon(
                         imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -439,7 +543,9 @@ fun ProductDetailItem(
 @Composable
 fun ProductDetailScreenPreview() {
     GSshopTheme {
-        ProductDetailScreen()
+        ProductDetailScreen(
+            productId = "sample-uuid-123"
+        )
     }
 }
 

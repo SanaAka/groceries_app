@@ -27,8 +27,8 @@ import com.example.groceries_app.ui.components.Product
 import com.example.groceries_app.ui.components.ProductCard
 import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
-import com.example.groceries_app.viewmodel.ProductViewModel
-import com.example.groceries_app.data.network.Resource
+import com.example.groceries_app.viewmodel.NectarProductViewModel
+import com.example.groceries_app.viewmodel.NectarProductState
 import com.example.groceries_app.ui.components.BottomNavigationBar
 import com.example.groceries_app.utils.toUiProducts
 
@@ -45,24 +45,19 @@ data class GroceryCategory(
 fun HomeScreen(
     modifier: Modifier = Modifier,
     onProductClick: (Product) -> Unit = {},
+    onAddToCart: (Product) -> Unit = {},
     onCategoryClick: (GroceryCategory) -> Unit = {},
     onLocationClick: () -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSearchClick: (String) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
+    var searchQuery by remember { mutableStateOf("") }
 
-    // API Integration - Get ViewModels
-    val productViewModel: ProductViewModel = viewModel()
-    val productsState by productViewModel.productsState.collectAsState()
-    val featuredState by productViewModel.featuredProductsState.collectAsState()
-    val bestSellingState by productViewModel.bestSellingProductsState.collectAsState()
-
-    // Fetch data from API when screen loads
-    LaunchedEffect(Unit) {
-        productViewModel.getProducts(page = 1, limit = 10)
-        productViewModel.getFeaturedProducts(limit = 5)
-        productViewModel.getBestSellingProducts(limit = 5)
-    }
+    // Nectar API Integration
+    val nectarViewModel: NectarProductViewModel = viewModel()
+    val productsState by nectarViewModel.productsState.collectAsState()
+    val isLoading by nectarViewModel.isLoading.collectAsState()
+    val error by nectarViewModel.error.collectAsState()
 
     Column(
         modifier = modifier
@@ -112,11 +107,12 @@ fun HomeScreen(
 
         // Search Bar
         OutlinedTextField(
-            value = "",
-            onValueChange = {},
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .clickable { onSearchClick(searchQuery) },
             placeholder = {
                 Text(
                     text = "Search Store",
@@ -124,11 +120,13 @@ fun HomeScreen(
                 )
             },
             leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = Color.Gray
-                )
+                IconButton(onClick = { onSearchClick(searchQuery) }) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = Color.Gray
+                    )
+                }
             },
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFFF2F3F2),
@@ -138,7 +136,15 @@ fun HomeScreen(
                 unfocusedIndicatorColor = Color.Transparent
             ),
             shape = RoundedCornerShape(12.dp),
-            singleLine = true
+            singleLine = true,
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onSearch = {
+                    onSearchClick(searchQuery)
+                }
+            ),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                imeAction = androidx.compose.ui.text.input.ImeAction.Search
+            )
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -153,9 +159,9 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // API Integration - Featured Products
-        when (featuredState) {
-            is Resource.Loading -> {
+        // API Integration - Featured Products (Exclusive Offer)
+        when (val state = nectarViewModel.productsState.collectAsState().value) {
+            is NectarProductState.Loading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -165,9 +171,8 @@ fun HomeScreen(
                     CircularProgressIndicator(color = NectarGreen)
                 }
             }
-            is Resource.Success -> {
-                val apiProducts = featuredState.data?.products ?: emptyList()
-                val uiProducts = apiProducts.toUiProducts()
+            is NectarProductState.Success -> {
+                val uiProducts = state.products.toUiProducts().take(6)
 
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
@@ -177,24 +182,24 @@ fun HomeScreen(
                         ProductCard(
                             product = product,
                             onProductClick = { onProductClick(product) },
-                            onAddToCart = { /* Handle add to cart */ }
+                            onAddToCart = { onAddToCart(product) }
                         )
                     }
                 }
             }
-            is Resource.Error -> {
-                // Fallback to mock data on error
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            is NectarProductState.Error -> {
+                // Show error or empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    items(getExclusiveProducts()) { product ->
-                        ProductCard(
-                            product = product,
-                            onProductClick = { onProductClick(product) },
-                            onAddToCart = { /* Handle add to cart */ }
-                        )
-                    }
+                    Text(
+                        text = "Failed to load products",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -207,8 +212,8 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         // API Integration - Best Selling Products
-        when (bestSellingState) {
-            is Resource.Loading -> {
+        when (val state = nectarViewModel.productsState.collectAsState().value) {
+            is NectarProductState.Loading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -218,9 +223,8 @@ fun HomeScreen(
                     CircularProgressIndicator(color = NectarGreen)
                 }
             }
-            is Resource.Success -> {
-                val apiProducts = bestSellingState.data?.products ?: emptyList()
-                val uiProducts = apiProducts.toUiProducts()
+            is NectarProductState.Success -> {
+                val uiProducts = state.products.toUiProducts().drop(6).take(6)
 
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
@@ -230,24 +234,24 @@ fun HomeScreen(
                         ProductCard(
                             product = product,
                             onProductClick = { onProductClick(product) },
-                            onAddToCart = { /* Handle add to cart */ }
+                            onAddToCart = { onAddToCart(product) }
                         )
                     }
                 }
             }
-            is Resource.Error -> {
-                // Fallback to mock data on error
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            is NectarProductState.Error -> {
+                // Show error or empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    items(getBestSellingProducts()) { product ->
-                        ProductCard(
-                            product = product,
-                            onProductClick = { onProductClick(product) },
-                            onAddToCart = { /* Handle add to cart */ }
-                        )
-                    }
+                    Text(
+                        text = "Failed to load products",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -259,23 +263,49 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(getGroceryCategories()) { category ->
-                GroceryCategoryCard(
-                    category = category,
-                    onClick = { onCategoryClick(category) }
+        // Show categories from API products if available, otherwise show default
+        when (productsState) {
+            is NectarProductState.Success -> {
+                val categories = (productsState as NectarProductState.Success).products
+                    .mapNotNull { it.category }
+                    .distinct()
+                    .take(4)
+                    .mapIndexed { index, categoryName ->
+                        GroceryCategory(
+                            id = index,
+                            name = categoryName,
+                            imageRes = com.example.groceries_app.R.drawable.img_4,
+                            backgroundColor = if (index % 2 == 0) Color(0xFFF8A44C) else Color(0xFF53B175)
+                        )
+                    }
+                
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(categories) { category ->
+                        GroceryCategoryCard(
+                            category = category,
+                            onClick = { onCategoryClick(category) }
+                        )
+                    }
+                }
+            }
+            else -> {
+                // Show nothing or a placeholder during loading/error
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // More Grocery Products
+        // Products from Nectar API
         when (productsState) {
-            is Resource.Loading -> {
+            is NectarProductState.Loading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -285,35 +315,59 @@ fun HomeScreen(
                     CircularProgressIndicator(color = NectarGreen)
                 }
             }
-            is Resource.Success -> {
-                val apiProducts = productsState.data?.products ?: emptyList()
-                val uiProducts = apiProducts.take(5).toUiProducts() // Take first 5 products
+            is NectarProductState.Success -> {
+                val apiProducts = (productsState as NectarProductState.Success).products
+                val uiProducts = apiProducts.toUiProducts()
 
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(uiProducts) { product ->
-                        ProductCard(
-                            product = product,
-                            onProductClick = { onProductClick(product) },
-                            onAddToCart = { /* Handle add to cart */ }
+                if (uiProducts.isNotEmpty()) {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(uiProducts) { product ->
+                            ProductCard(
+                                product = product,
+                                onProductClick = { onProductClick(product) },
+                                onAddToCart = { onAddToCart(product) }
+                            )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp)
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No products available",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Gray
                         )
                     }
                 }
             }
-            is Resource.Error -> {
-                // Fallback to mock data on error
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            is NectarProductState.Error -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    items(getGroceryProducts()) { product ->
-                        ProductCard(
-                            product = product,
-                            onProductClick = { onProductClick(product) },
-                            onAddToCart = { /* Handle add to cart */ }
-                        )
+                    Text(
+                        text = "Failed to load products",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Red
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { nectarViewModel.loadProducts() },
+                        colors = ButtonDefaults.buttonColors(containerColor = NectarGreen)
+                    ) {
+                        Text("Retry")
                     }
                 }
             }
@@ -434,36 +488,7 @@ fun GroceryCategoryCard(
     }
 }
 
-// Sample data functions matching the new Product model
-fun getExclusiveProducts(): List<Product> {
-    return listOf(
-        Product(1, "Organic Bananas", "7pcs, Priceg", 4.99, com.example.groceries_app.R.drawable.img_2),
-        Product(2, "Red Apple", "1kg, Priceg", 4.99, com.example.groceries_app.R.drawable.img_4),
-        Product(3, "Orange", "1kg, Priceg", 3.99, com.example.groceries_app.R.drawable.img_3)
-    )
-}
-
-fun getBestSellingProducts(): List<Product> {
-    return listOf(
-        Product(4, "Bell Pepper Red", "1kg, Priceg", 4.99, com.example.groceries_app.R.drawable.img_4),
-        Product(5, "Ginger", "250gm, Priceg", 2.99, com.example.groceries_app.R.drawable.img_3),
-        Product(6, "Fresh Lettuce", "1kg, Priceg", 3.49, com.example.groceries_app.R.drawable.img_1)
-    )
-}
-
-fun getGroceryCategories(): List<GroceryCategory> {
-    return listOf(
-        GroceryCategory(1, "Pulses", com.example.groceries_app.R.drawable.img_4, Color(0xFFF8A44C)),
-        GroceryCategory(2, "Rice", com.example.groceries_app.R.drawable.img_4, Color(0xFF53B175))
-    )
-}
-
-fun getGroceryProducts(): List<Product> {
-    return listOf(
-        Product(7, "Beef Bone", "1kg, Priceg", 5.99, com.example.groceries_app.R.drawable.img_4),
-        Product(8, "Broiler Chicken", "1kg, Priceg", 6.99, com.example.groceries_app.R.drawable.img_1)
-    )
-}
+// No more static data - all products fetched from nectar-API
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

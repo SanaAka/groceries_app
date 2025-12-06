@@ -9,9 +9,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.groceries_app.data.network.Resource
+import com.example.groceries_app.viewmodel.AuthState
 import com.example.groceries_app.viewmodel.AuthViewModel
-import com.example.groceries_app.viewmodel.ProductViewModel
+import com.example.groceries_app.viewmodel.NectarProductViewModel
+import com.example.groceries_app.viewmodel.NectarProductState
 
 /**
  * Example screen showing how to fetch and display products using the API
@@ -19,12 +20,12 @@ import com.example.groceries_app.viewmodel.ProductViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExampleProductListScreen(
-    viewModel: ProductViewModel = viewModel()
+    viewModel: NectarProductViewModel = viewModel()
 ) {
     val productsState by viewModel.productsState.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.getProducts(page = 1, limit = 20)
+        viewModel.loadProducts()
     }
 
     Scaffold(
@@ -40,13 +41,13 @@ fun ExampleProductListScreen(
                 .padding(paddingValues)
         ) {
             when (val state = productsState) {
-                is Resource.Loading -> {
+                is NectarProductState.Loading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                is Resource.Success -> {
-                    val products = state.data?.products ?: emptyList()
+                is NectarProductState.Success -> {
+                    val products = state.products
 
                     if (products.isEmpty()) {
                         Text(
@@ -68,7 +69,7 @@ fun ExampleProductListScreen(
                                         modifier = Modifier.padding(16.dp)
                                     ) {
                                         Text(
-                                            text = product.productName,
+                                            text = product.name ?: "Unknown Product",
                                             style = MaterialTheme.typography.titleMedium
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
@@ -89,17 +90,17 @@ fun ExampleProductListScreen(
                         }
                     }
                 }
-                is Resource.Error -> {
+                is NectarProductState.Error -> {
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = state.message ?: "Unknown error",
+                            text = state.message,
                             color = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.getProducts() }) {
+                        Button(onClick = { viewModel.loadProducts() }) {
                             Text("Retry")
                         }
                     }
@@ -116,16 +117,15 @@ fun ExampleProductListScreen(
 @Composable
 fun ExampleLoginScreen(
     viewModel: AuthViewModel = viewModel(),
-    onLoginSuccess: (String) -> Unit = {}
+    onLoginSuccess: () -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    val loginState by viewModel.loginState.collectAsState()
+    val authState by viewModel.authState.collectAsState()
 
-    LaunchedEffect(loginState) {
-        if (loginState is Resource.Success) {
-            val token = (loginState as Resource.Success).data?.token
-            token?.let { onLoginSuccess(it) }
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Success) {
+            onLoginSuccess()
         }
     }
 
@@ -168,9 +168,9 @@ fun ExampleLoginScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = loginState !is Resource.Loading
+                enabled = authState !is AuthState.Loading
             ) {
-                if (loginState is Resource.Loading) {
+                if (authState is AuthState.Loading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         color = MaterialTheme.colorScheme.onPrimary
@@ -180,10 +180,10 @@ fun ExampleLoginScreen(
                 }
             }
 
-            if (loginState is Resource.Error) {
+            if (authState is AuthState.Error) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = (loginState as Resource.Error).message ?: "Login failed",
+                    text = (authState as AuthState.Error).message,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium
                 )
