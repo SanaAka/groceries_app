@@ -85,9 +85,12 @@ fun NavGraph(
         composable(route = Screen.SignUp.route) {
             SignUpScreen(
                 onSignUpClick = { email, password, name ->
-                    // After successful sign up, go to location selection or home
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    // Registration handled by AuthViewModel in SignUpScreen
+                },
+                onSignUpSuccess = {
+                    // After successful sign up, navigate to login
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.SignUp.route) { inclusive = true }
                     }
                 },
                 onLoginClick = {

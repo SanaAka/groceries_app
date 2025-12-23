@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -52,6 +53,7 @@ import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
 import com.example.groceries_app.viewmodel.AuthState
 import com.example.groceries_app.viewmodel.AuthViewModel
+import com.example.groceries_app.viewmodel.AuthViewModelFactory
 
 @Composable
 fun SignUpScreen(
@@ -62,9 +64,10 @@ fun SignUpScreen(
     onBackClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
     onPrivacyClick: () -> Unit = {},
-    onSignUpSuccess: () -> Unit = {},
-    viewModel: AuthViewModel = viewModel()
+    onSignUpSuccess: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val viewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory(context))
     var name by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -371,7 +374,9 @@ fun SignUpScreen(
                             phoneNumber = phoneNumber,
                             email = email,
                             password = password,
-                            name = name.ifEmpty { "User" }
+                            name = name.ifEmpty { "User" },
+                            gender = "MALE", // Default gender
+                            dob = "2000-01-01" // Default date of birth
                         )
                         onSignUpClick(
                             email, 
