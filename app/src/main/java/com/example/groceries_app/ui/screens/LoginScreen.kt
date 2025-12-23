@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -51,6 +52,7 @@ import com.example.groceries_app.ui.theme.GSshopTheme
 import com.example.groceries_app.ui.theme.NectarGreen
 import com.example.groceries_app.viewmodel.AuthState
 import com.example.groceries_app.viewmodel.AuthViewModel
+import com.example.groceries_app.viewmodel.AuthViewModelFactory
 
 @Composable
 fun LoginScreen(
@@ -59,11 +61,12 @@ fun LoginScreen(
     onBackClick: () -> Unit = {},
     onForgotPasswordClick: () -> Unit = {},
     onSignupClick: () -> Unit = {},
-    onLoginSuccess: () -> Unit = {},
-    viewModel: AuthViewModel = viewModel()
+    onLoginSuccess: () -> Unit = {}
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val viewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory(context))
+    var email by remember { mutableStateOf("admin@nectar.com") }
+    var password by remember { mutableStateOf("darasmos123") }
     var passwordVisible by remember { mutableStateOf(false) }
     val authState by viewModel.authState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -161,7 +164,7 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        text = "imshuvo97@gmail.com",
+                        text = "admin@nectar.com",
                         color = Color.Gray
                     )
                 },

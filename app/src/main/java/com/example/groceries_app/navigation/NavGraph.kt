@@ -85,9 +85,12 @@ fun NavGraph(
         composable(route = Screen.SignUp.route) {
             SignUpScreen(
                 onSignUpClick = { email, password, name ->
-                    // After successful sign up, go to location selection or home
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    // Registration handled by AuthViewModel in SignUpScreen
+                },
+                onSignUpSuccess = {
+                    // After successful sign up, navigate to login
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.SignUp.route) { inclusive = true }
                     }
                 },
                 onLoginClick = {
@@ -242,7 +245,8 @@ fun NavGraph(
                 onMenuItemClick = { route ->
                     // Navigate to different account sections
                     when (route) {
-                        "orders" -> { /* Navigate to orders screen */
+                        "orders" -> {
+                            navController.navigate(Screen.Orders.route)
                         }
 
                         "my_details" -> { /* Navigate to my details screen */
@@ -436,15 +440,29 @@ fun NavGraph(
         ) { backStackEntry ->
             val amountStr = backStackEntry.arguments?.getString("amount") ?: "0.0"
             val amount = amountStr.toDoubleOrNull() ?: 0.0
+            val cartItems by cartViewModel.cartItems.collectAsState()
 
             PaymentScreen(
                 amount = amount,
+                cartItems = cartItems,
                 onPaymentSuccess = {
+                    // Clear cart after successful payment
+                    cartViewModel.clearCart()
+
                     // Navigate to order accepted screen
                     navController.navigate(Screen.OrderAccepted.route) {
                         popUpTo("cart") { inclusive = true }
                     }
                 },
+                onBack = {
+                    navController.navigateUp()
+                }
+            )
+        }
+
+        // Orders Screen
+        composable(route = Screen.Orders.route) {
+            OrdersScreen(
                 onBack = {
                     navController.navigateUp()
                 }

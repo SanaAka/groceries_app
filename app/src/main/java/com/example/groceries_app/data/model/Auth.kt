@@ -94,6 +94,23 @@ data class UserResponse(
     val isBlocked: Boolean = false,
     
     @SerializedName("roles")
-    val roles: List<String> = emptyList()
+    val roles: List<String> = emptyList(),
+
+    @SerializedName("audit")
+    val audit: AuditInfo? = null
+)
+
+data class AuditInfo(
+    @SerializedName("createdBy")
+    val createdBy: String,
+
+    @SerializedName("updatedBy")
+    val updatedBy: String,
+
+    @SerializedName("createdAt")
+    val createdAt: String,
+
+    @SerializedName("updatedAt")
+    val updatedAt: String
 )
 
