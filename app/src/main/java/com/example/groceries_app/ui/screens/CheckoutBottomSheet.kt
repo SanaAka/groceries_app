@@ -31,7 +31,8 @@ fun CheckoutBottomSheet(
     onSelectDeliveryMethod: () -> Unit = {},
     onSelectPaymentMethod: () -> Unit = {},
     onApplyPromoCode: () -> Unit = {},
-    onPlaceOrder: () -> Unit = {}
+    onPlaceOrder: () -> Unit = {},
+    onNavigateToPayment: ((Double) -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
@@ -165,7 +166,11 @@ fun CheckoutBottomSheet(
 
             // Place Order Button
             Button(
-                onClick = onPlaceOrder,
+                onClick = {
+                    onDismiss()
+                    // Navigate to payment screen with total amount
+                    onNavigateToPayment?.invoke(totalCost) ?: onPlaceOrder()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(67.dp),
