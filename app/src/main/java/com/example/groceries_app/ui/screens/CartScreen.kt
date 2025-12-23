@@ -49,6 +49,7 @@ fun CartScreen(
     modifier: Modifier = Modifier,
     onOrderPlaced: () -> Unit = {},
     onOrderFailed: () -> Unit = {},
+    onNavigateToPayment: ((Double) -> Unit)? = null,
     cartItems: List<CartItem> = emptyList() // Cart items passed from parent/ViewModel
 ) {
     val context = LocalContext.current
@@ -181,7 +182,9 @@ fun CartScreen(
             onApplyPromoCode = {
                 // TODO: Navigate to promo code screen
             },
+            onNavigateToPayment = onNavigateToPayment,
             onPlaceOrder = {
+                // Fallback if onNavigateToPayment is not provided
                 showCheckoutSheet = false
                 
                 // Create order via API

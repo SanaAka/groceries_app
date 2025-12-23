@@ -1,6 +1,7 @@
 package com.example.groceries_app.data.api
 
 import com.example.groceries_app.data.model.*
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -61,4 +62,20 @@ interface NectarApiService {
         @Header("Authorization") token: String,
         @Body request: OrderRequest
     ): Response<OrderResponse>
+
+    // Bakong payment endpoints
+    @POST("api/v1/bakong/generate-qr")
+    suspend fun generateBakongQr(
+        @Body request: BakongQrRequest
+    ): Response<BakongQrResponse>
+
+    @POST("api/v1/bakong/get-qr-image")
+    suspend fun getBakongQrImage(
+        @Body request: BakongQrImageRequest
+    ): Response<okhttp3.ResponseBody>
+
+    @POST("api/v1/bakong/check-transaction")
+    suspend fun checkBakongTransaction(
+        @Body request: BakongTransactionCheckRequest
+    ): Response<BakongTransactionResponse>
 }

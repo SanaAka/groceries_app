@@ -20,5 +20,8 @@ sealed class Screen(val route: String) {
     data object Filter : Screen("filter")
     data object OrderAccepted : Screen("order_accepted")
     data object OrderFailed : Screen("order_failed")
+    data object Payment : Screen("payment/{amount}") {
+        fun createRoute(amount: Double) = "payment/$amount"
+    }
 }
 

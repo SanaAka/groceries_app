@@ -10,7 +10,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.groceries_app.ui.screens.AccountScreen
-import com.example.groceries_app.R
 import com.example.groceries_app.ui.screens.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.groceries_app.viewmodel.CartViewModel
@@ -194,6 +193,10 @@ fun NavGraph(
             CartScreen(
                 modifier = modifier,
                 cartItems = cartItems,
+                onNavigateToPayment = { amount ->
+                    // Navigate to payment screen with amount
+                    navController.navigate(Screen.Payment.createRoute(amount))
+                },
                 onOrderPlaced = {
                     // Navigate to order success screen
                     navController.navigate(Screen.OrderAccepted.route) {
@@ -422,6 +425,32 @@ fun NavGraph(
             )
         }
         
+        // Payment Screen
+        composable(
+            route = Screen.Payment.route,
+            arguments = listOf(
+                navArgument("amount") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val amountStr = backStackEntry.arguments?.getString("amount") ?: "0.0"
+            val amount = amountStr.toDoubleOrNull() ?: 0.0
+
+            PaymentScreen(
+                amount = amount,
+                onPaymentSuccess = {
+                    // Navigate to order accepted screen
+                    navController.navigate(Screen.OrderAccepted.route) {
+                        popUpTo("cart") { inclusive = true }
+                    }
+                },
+                onBack = {
+                    navController.navigateUp()
+                }
+            )
+        }
+
         // Order Failed Screen
         composable(route = Screen.OrderFailed.route) {
             OrderFailedScreen(
