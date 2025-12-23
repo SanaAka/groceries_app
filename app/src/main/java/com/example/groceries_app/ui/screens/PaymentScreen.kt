@@ -21,15 +21,26 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.groceries_app.ui.theme.NectarGreen
 import com.example.groceries_app.viewmodel.PaymentState
 import com.example.groceries_app.viewmodel.PaymentViewModel
+import com.example.groceries_app.viewmodel.OrderViewModel
+import com.example.groceries_app.data.model.OrderRequest
+import com.example.groceries_app.data.model.OrderItemRequest
+import com.example.groceries_app.data.model.Status
+import com.example.groceries_app.utils.SessionManager
+import java.math.BigDecimal
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentScreen(
     amount: Double,
+    cartItems: List<com.example.groceries_app.ui.screens.CartItem> = emptyList(),
     onPaymentSuccess: () -> Unit = {},
     onBack: () -> Unit = {},
-    paymentViewModel: PaymentViewModel = viewModel()
+    paymentViewModel: PaymentViewModel = viewModel(),
+    orderViewModel: OrderViewModel = viewModel()
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
     val paymentState by paymentViewModel.paymentState.collectAsState()
     val timeRemaining by paymentViewModel.timeRemaining.collectAsState()
 
@@ -38,9 +49,30 @@ fun PaymentScreen(
         paymentViewModel.generateQrCode(amount)
     }
 
-    // Handle payment success
+    // Handle payment success - create order
     LaunchedEffect(paymentState) {
         if (paymentState is PaymentState.PaymentSuccess) {
+            // Create order after successful payment
+            val token = sessionManager.getAccessToken()
+            if (token != null && cartItems.isNotEmpty()) {
+                val orderItems = cartItems.map { cartItem ->
+                    OrderItemRequest(
+                        productUuid = cartItem.productUuid ?: UUID.randomUUID().toString(),
+                        quantity = cartItem.quantity,
+                        price = BigDecimal.valueOf(cartItem.price)
+                    )
+                }
+
+                val orderRequest = OrderRequest(
+                    orderNumber = "ORD-${System.currentTimeMillis()}",
+                    totalPrice = BigDecimal.valueOf(amount),
+                    status = Status.PAID,
+                    items = orderItems
+                )
+
+                orderViewModel.createOrder(orderRequest, token)
+            }
+
             // Wait a bit to show success message, then navigate
             kotlinx.coroutines.delay(2000)
             onPaymentSuccess()

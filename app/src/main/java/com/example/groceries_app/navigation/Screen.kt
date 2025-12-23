@@ -23,5 +23,6 @@ sealed class Screen(val route: String) {
     data object Payment : Screen("payment/{amount}") {
         fun createRoute(amount: Double) = "payment/$amount"
     }
+    data object Orders : Screen("orders")
 }
 

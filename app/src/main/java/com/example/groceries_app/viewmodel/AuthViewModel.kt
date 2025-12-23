@@ -56,17 +56,25 @@ class AuthViewModel(
         }
     }
 
-    fun signUp(email: String, password: String, name: String, gender: String = "OTHER") {
+    fun signUp(
+        phoneNumber: String,
+        email: String,
+        password: String,
+        name: String,
+        gender: String = "MALE",
+        dob: String = "2000-01-01"
+    ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             _isLoading.value = true
 
             val request = RegisterRequest(
-                phoneNumber = "+0000000000", // Default placeholder since backend still requires it
+                phoneNumber = phoneNumber,
                 email = email,
                 password = password,
                 name = name,
-                gender = gender
+                gender = gender,
+                dob = dob
             )
             
             repository.register(request)

@@ -66,6 +66,7 @@ fun SignUpScreen(
     viewModel: AuthViewModel = viewModel()
 ) {
     var name by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -169,6 +170,44 @@ fun SignUpScreen(
                         color = Color.Gray
                     )
                 },
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    disabledContainerColor = Color.White,
+                    focusedIndicatorColor = Color(0xFFE2E2E2),
+                    unfocusedIndicatorColor = Color(0xFFE2E2E2)
+                ),
+                shape = RoundedCornerShape(8.dp),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Phone Number Label
+            Text(
+                text = "Phone Number",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Gray,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            )
+
+            // Phone Number TextField
+            OutlinedTextField(
+                value = phoneNumber,
+                onValueChange = { phoneNumber = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        text = "0123456789",
+                        color = Color.Gray
+                    )
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone
+                ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.White,
                     unfocusedContainerColor = Color.White,
@@ -329,6 +368,7 @@ fun SignUpScreen(
                         errorMessage = null
                         isLoading = true
                         viewModel.signUp(
+                            phoneNumber = phoneNumber,
                             email = email,
                             password = password,
                             name = name.ifEmpty { "User" }
@@ -348,7 +388,7 @@ fun SignUpScreen(
                 ),
                 shape = RoundedCornerShape(19.dp),
                 enabled = !isLoading && email.isNotEmpty() && 
-                          password.isNotEmpty() && name.isNotEmpty()
+                          password.isNotEmpty() && name.isNotEmpty() && phoneNumber.isNotEmpty()
             ) {
                 if (isLoading) {
                     androidx.compose.material3.CircularProgressIndicator(

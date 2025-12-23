@@ -62,8 +62,8 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit = {},
     viewModel: AuthViewModel = viewModel()
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("admin@nectar.com") }
+    var password by remember { mutableStateOf("darasmos123") }
     var passwordVisible by remember { mutableStateOf(false) }
     val authState by viewModel.authState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -161,7 +161,7 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        text = "imshuvo97@gmail.com",
+                        text = "admin@nectar.com",
                         color = Color.Gray
                     )
                 },
